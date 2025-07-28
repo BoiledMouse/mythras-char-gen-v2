@@ -114,6 +114,12 @@
           <label for="combatStyleSelect">Combat Style:</label>
           <select id="combatStyleSelect"></select>
         </div>
+
+        <div class="bonus-skill-select" style="margin-top:10px;">
+          <label for="bonusSkillSelect"><strong>Bonus Skill:</strong></label>
+          <select id="bonusSkillSelect"></select>
+          <span class="small">Select one extra professional skill as a hobby. You may assign bonus points to it.</span>
+        </div>
       </div>
       <p>Allocate your Culture, Career and Bonus points amongst the available skills.  The table below shows each skill’s base percentage (calculated from your characteristics) and allows you to assign points to improve it.  You cannot exceed the maximum increase per skill for each pool.  All remaining points must be spent before proceeding.</p>
       <div class="skill-pools">
@@ -142,6 +148,13 @@
       <div class="form-group">
         <button type="button" id="rollSilver" class="primary">Roll Starting Silver</button>
         <span id="silverAmount" class="silver-display"></span>
+      </div>
+
+      <div id="equipmentSection" style="margin-top:15px;">
+        <h3>Purchase Equipment</h3>
+        <p class="small">Select gear for your character.  Items are grouped by type.  The cost will be deducted from your starting silver.</p>
+        <div id="equipmentList"></div>
+        <p class="small"><strong>Remaining Silver:</strong> <span id="remainingSilver"></span> sp</p>
       </div>
     </section>
     <!-- Step 5: Export -->

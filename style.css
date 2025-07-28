@@ -28,7 +28,8 @@ body {
 }
 
 .overlay {
-  background-color: rgba(250, 245, 235, 0.85);
+  /* Increase the opacity of the overlay for better text contrast */
+  background-color: rgba(250, 245, 235, 0.97);
 }
 
 header.card {
@@ -134,7 +135,8 @@ section.active {
 
 .derived {
   margin-top: 15px;
-  background-color: rgba(255, 255, 255, 0.7);
+  /* Make derived attributes box more opaque for legibility */
+  background-color: rgba(255, 255, 255, 0.9);
   padding: 10px;
   border-radius: 4px;
   border: 1px solid #d8c69e;
@@ -151,7 +153,8 @@ section.active {
 table {
   width: 100%;
   border-collapse: collapse;
-  background-color: rgba(255, 250, 240, 0.9);
+  /* Lightened table background */
+  background-color: rgba(255, 250, 240, 0.99);
 }
 
 th, td {
@@ -183,10 +186,18 @@ input.skill-input.enabled {
   border-color: #9f7a4c;
 }
 
+/* Disabled skill inputs appear muted */
+input.skill-input:disabled {
+  background-color: #eee5d7;
+  color: #aaa;
+  border-color: #d3ba8b;
+}
+
 /* Character summary styling */
 .character-summary {
   margin-top: 10px;
-  background-color: rgba(255, 255, 255, 0.8);
+  /* Increase opacity of summary for readability */
+  background-color: rgba(255, 255, 255, 0.97);
   padding: 10px;
   border: 1px solid #d3ba8b;
   border-radius: 4px;
@@ -231,7 +242,8 @@ input.skill-input.enabled {
 .profession-selector {
   margin: 10px 0 20px;
   padding: 10px;
-  background-color: rgba(255, 255, 255, 0.7);
+  /* Lighten professional skill selection box */
+  background-color: rgba(255, 255, 255, 0.9);
   border: 1px solid #d8c69e;
   border-radius: 4px;
 }
@@ -295,6 +307,7 @@ input.skill-input.enabled {
   font-size: 1.2rem;
   font-weight: bold;
   margin-left: 15px;
+  color: #522d13;
 }
 
 .export-buttons {
@@ -302,4 +315,36 @@ input.skill-input.enabled {
   flex-wrap: wrap;
   gap: 15px;
   margin-top: 10px;
+}
+
+/* Equipment section container */
+#equipmentSection {
+  margin-top: 15px;
+  background-color: rgba(255, 255, 255, 0.95);
+  padding: 10px;
+  border: 1px solid #d8c69e;
+  border-radius: 4px;
+}
+
+/* Equipment section styles */
+.equipment-category {
+  margin-bottom: 10px;
+}
+.equipment-category h4 {
+  margin: 4px 0;
+  color: #522d13;
+}
+.equipment-item {
+  display: block;
+  margin: 3px 0;
+  font-size: 0.85rem;
+  color: #3b2a19;
+}
+.equipment-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+.equipment-list li {
+  margin-bottom: 4px;
 }

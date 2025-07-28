@@ -79,6 +79,47 @@
     'Staff & Sling'
   ];
 
+  // Equipment definitions grouped by category.  Costs are in
+  // silver pieces (sp) and are drawn from typical medieval gear.
+  const equipmentCategories = {
+    Weapons: [
+      { name: 'Dagger', cost: 20 },
+      { name: 'Short Sword', cost: 50 },
+      { name: 'Long Sword', cost: 60 },
+      { name: 'Axe', cost: 40 },
+      { name: 'Spear', cost: 30 },
+      { name: 'Bow and 20 Arrows', cost: 80 },
+      { name: 'Crossbow and 20 Bolts', cost: 100 }
+    ],
+    Armour: [
+      { name: 'Leather Armour', cost: 100 },
+      { name: 'Studded Leather', cost: 150 },
+      { name: 'Chain Shirt', cost: 300 },
+      { name: 'Chain Mail', cost: 500 },
+      { name: 'Shield', cost: 40 }
+    ],
+    Tools: [
+      { name: 'Backpack', cost: 10 },
+      { name: 'Bedroll', cost: 5 },
+      { name: 'Lantern', cost: 15 },
+      { name: 'Rope (50 ft)', cost: 10 },
+      { name: 'Waterskin', cost: 5 }
+    ],
+    Provisions: [
+      { name: 'Rations (1 week)', cost: 10 },
+      { name: 'Wine (jug)', cost: 8 },
+      { name: 'Ale (jug)', cost: 6 },
+      { name: 'Spices', cost: 4 }
+    ],
+    Misc: [
+      { name: 'Flint & Steel', cost: 2 },
+      { name: 'Blank Parchment (10 sheets)', cost: 3 },
+      { name: 'Ink & Quill', cost: 5 },
+      { name: 'Small Mirror', cost: 12 },
+      { name: 'Holy Symbol', cost: 15 }
+    ]
+  };
+
   // Base formulae for all standard skills【394499632944594†L613-L641】.  Each function
   // accepts the character's attribute set and returns the base
   // percentage for that skill.  Customs and Native Tongue receive
@@ -281,6 +322,17 @@
     // The chosen combat style.  Defaults to the first entry in
     // combatStyles but can be changed via the UI.
     combatStyle: combatStyles[0]
+    ,
+    // A single bonus professional skill chosen by the player.  This
+    // skill acts as an additional hobby specialisation and may
+    // receive bonus points even if it is not part of the culture or
+    // career lists.  Empty string when none selected.
+    bonusSkill: ''
+    ,
+    // Equipment selected by the player.  This will be populated
+    // when purchasing items in the equipment step.  Each entry is
+    // an object with name and cost.
+    equipment: []
   };
 
   // Initialise skill allocations to zeros for all skills.
@@ -318,6 +370,13 @@
   const combatStyleSelect = document.getElementById('combatStyleSelect');
   // Input for adjusting point buy pool
   const poolSizeInput = document.getElementById('poolSize');
+
+  // Bonus skill select element
+  const bonusSkillSelect = document.getElementById('bonusSkillSelect');
+
+  // Elements for equipment selection
+  const equipmentListDiv = document.getElementById('equipmentList');
+  const remainingSilverSpan = document.getElementById('remainingSilver');
 
   /**
    * Populate the dropdown selectors for age, culture and career.
@@ -407,6 +466,53 @@
   }
 
   /**
+   * Populate the bonus skill select box.  This presents a list of
+   * professional skills not tied to the chosen culture or career and
+   * allows the player to choose one as a hobby skill.  Professional
+   * skills already selected via culture or career are excluded to
+   * avoid duplication.  If the previously selected bonus skill is
+   * still valid it remains selected.
+   */
+  function populateBonusSkillSelect() {
+    if (!bonusSkillSelect) return;
+    // Determine which professional skills are eligible.  Exclude
+    // standard skills and those already selected in culture or
+    // career lists.
+    const excluded = new Set();
+    // Exclude all standard skills
+    Object.keys(standardSkillFormulas).forEach(s => excluded.add(s));
+    // Exclude culture and career professional skills
+    const culturePros = cultures[character.culture].professional;
+    const careerPros = careers[character.career].professional;
+    culturePros.forEach(s => excluded.add(s));
+    careerPros.forEach(s => excluded.add(s));
+    // Exclude any currently selected culture/career professional
+    character.selectedCulturePro.forEach(s => excluded.add(s));
+    character.selectedCareerPro.forEach(s => excluded.add(s));
+    // Build list of options from remaining professional skills
+    const options = professionalSkills.filter(s => !excluded.has(s));
+    bonusSkillSelect.innerHTML = '';
+    // Add a blank option for none
+    const noneOpt = document.createElement('option');
+    noneOpt.value = '';
+    noneOpt.textContent = 'None';
+    bonusSkillSelect.appendChild(noneOpt);
+    options.forEach(skill => {
+      const opt = document.createElement('option');
+      opt.value = skill;
+      opt.textContent = skill;
+      bonusSkillSelect.appendChild(opt);
+    });
+    // Restore previous selection if still valid
+    if (character.bonusSkill && !excluded.has(character.bonusSkill)) {
+      bonusSkillSelect.value = character.bonusSkill;
+    } else {
+      bonusSkillSelect.value = '';
+      character.bonusSkill = '';
+    }
+  }
+
+  /**
    * Populate the professional skill option lists for culture and career.
    * Only the professional skills defined for the selected culture and
    * career are shown.  The character may select up to three from each
@@ -461,6 +567,9 @@
     updateSkillInputsEnabled();
     updateSkillPoolsDisplay();
     updateSkillTotals();
+
+    // Bonus skill list may have changed as professional selections modify excluded skills
+    populateBonusSkillSelect();
   }
 
   /**
@@ -709,18 +818,16 @@
     skillsTableBody.innerHTML = '';
     const cultureDef = cultures[character.culture];
     const careerDef = careers[character.career];
-    // Determine which skills are available for display: all culture and
-    // career standard skills, the selected professional skills, and
-    // any skill with allocated points.  Combat Style is always
-    // included.
-    const available = new Set();
-    // Standard skills
-    if (cultureDef && cultureDef.standard) cultureDef.standard.forEach(s => available.add(s));
-    if (careerDef && careerDef.standard) careerDef.standard.forEach(s => available.add(s));
-    available.add('Combat Style');
+    // Determine which skills are available for display.  All standard
+    // skills are always shown.  Additionally include selected
+    // professional skills, the bonus skill if chosen, and any skill
+    // that has allocations.
+    const available = new Set(Object.keys(standardSkillFormulas));
     // Selected professional skills
     character.selectedCulturePro.forEach(s => available.add(s));
     character.selectedCareerPro.forEach(s => available.add(s));
+    // Bonus skill (if selected)
+    if (character.bonusSkill) available.add(character.bonusSkill);
     // Skills with allocations
     Object.entries(character.skillAllocations).forEach(([skill, alloc]) => {
       if ((alloc.culture + alloc.career + alloc.bonus) > 0) {
@@ -773,6 +880,115 @@
   }
 
   /**
+   * Compute the total cost of all equipment currently selected.
+   */
+  function getEquipmentTotal() {
+    return character.equipment.reduce((sum, item) => sum + item.cost, 0);
+  }
+
+  /**
+   * Build the equipment list UI.  Items are grouped by category with
+   * checkboxes allowing the user to purchase them.  Selecting an
+   * item deducts its cost from the available silver; deselecting
+   * refunds the cost.  If the user attempts to purchase an item
+   * they cannot afford, the checkbox is immediately reverted.
+   */
+  function buildEquipmentList() {
+    if (!equipmentListDiv) return;
+    equipmentListDiv.innerHTML = '';
+    Object.entries(equipmentCategories).forEach(([category, items]) => {
+      const catDiv = document.createElement('div');
+      catDiv.className = 'equipment-category';
+      const heading = document.createElement('h4');
+      heading.textContent = category;
+      catDiv.appendChild(heading);
+      items.forEach(item => {
+        const label = document.createElement('label');
+        label.className = 'equipment-item';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = item.name;
+        // Check if the item is currently selected
+        if (character.equipment.find(e => e.name === item.name)) {
+          checkbox.checked = true;
+        }
+        checkbox.addEventListener('change', () => {
+          onEquipmentToggle(item, checkbox.checked);
+        });
+        label.appendChild(checkbox);
+        const text = document.createTextNode(`${item.name} (${item.cost} sp)`);
+        label.appendChild(text);
+        catDiv.appendChild(label);
+      });
+      equipmentListDiv.appendChild(catDiv);
+    });
+    updateRemainingSilver();
+  }
+
+  /**
+   * Handle toggling of equipment items.  Adds or removes the item
+   * from the character's equipment list and updates remaining
+   * silver.  Prevents purchasing items beyond available silver.
+   */
+  function onEquipmentToggle(item, checked) {
+    // Determine the current remaining silver
+    const remaining = (character.startingSilver || 0) - getEquipmentTotal();
+    if (checked) {
+      // Attempt to purchase
+      if (item.cost > remaining) {
+        // Cannot afford; rebuild list to revert the checkbox
+        buildEquipmentList();
+        alert('Not enough silver to purchase this item.');
+        return;
+      }
+      // Add if not already selected
+      if (!character.equipment.find(e => e.name === item.name)) {
+        character.equipment.push(item);
+      }
+    } else {
+      // Remove
+      character.equipment = character.equipment.filter(e => e.name !== item.name);
+    }
+    updateRemainingSilver();
+    renderCharacterSummary();
+  }
+
+  /**
+   * Update the displayed remaining silver based on selected equipment.
+   */
+  function updateRemainingSilver() {
+    if (!remainingSilverSpan) return;
+    const totalCost = getEquipmentTotal();
+    const remaining = (character.startingSilver || 0) - totalCost;
+    remainingSilverSpan.textContent = remaining >= 0 ? remaining : 0;
+  }
+
+  /**
+   * Ensure that each of the selected culture's standard skills has at
+   * least 5 culture points assigned.  This implements the rule that
+   * culture points must allocate a minimum of 5% to each listed
+   * standard skill.  Any skill that already has 5 or more culture
+   * points remains unchanged.  This function should be called when
+   * the culture changes and when initializing the skills table.
+   */
+  function applyCultureMinimums() {
+    const cultureDef = cultures[character.culture];
+    if (!cultureDef) return;
+    cultureDef.standard.forEach(skill => {
+      const alloc = character.skillAllocations[skill];
+      if (alloc.culture < 5) {
+        // Adjust the pool usage for this skill: we simply assign 5
+        // points.  The pool remaining will account for this change when
+        // updateSkillPoolsDisplay is called.
+        alloc.culture = 5;
+      }
+    });
+    // Update remaining points display and totals
+    updateSkillPoolsDisplay();
+    updateSkillTotals();
+  }
+
+  /**
    * Update whether the culture and career inputs are enabled for each
    * skill row.  A skill can only receive culture points if it is in
    * the selected culture's standard or professional list; likewise
@@ -791,6 +1007,12 @@
         const inStandard = cultureDef.standard.includes(skill);
         const inPro = cultureDef.professional.includes(skill) && character.selectedCulturePro.includes(skill);
         input.disabled = !(inStandard || inPro);
+        // For culture standard skills enforce a minimum of 5 points
+        if (!input.disabled && pool === 'culture' && inStandard) {
+          input.min = 5;
+        } else {
+          input.min = 0;
+        }
       } else if (pool === 'career') {
         const inStandard = careerDef.standard.includes(skill);
         const inPro = careerDef.professional.includes(skill) && character.selectedCareerPro.includes(skill);
@@ -798,6 +1020,7 @@
       } else {
         // bonus always allowed
         input.disabled = false;
+        input.min = 0;
       }
       // Apply a class to distinguish enabled inputs for visual clarity
       if (input.disabled) {
@@ -875,6 +1098,13 @@
       // Determine maximum allowed for this skill in this pool
       const cap = character.skillCaps[poolName];
       let v = Math.min(value, cap);
+      // Enforce minimum of 5 points on culture standard skills
+      if (poolName === 'culture') {
+        const isStandard = cultures[character.culture].standard.includes(skill);
+        if (isStandard) {
+          v = Math.max(v, 5);
+        }
+      }
       // Compute remaining pool if this value is set
       const poolTotal = character.skillPools[poolName];
       const currentSum = Object.values(character.skillAllocations).reduce((sum, alloc) => sum + alloc[poolName], 0);
@@ -959,6 +1189,9 @@
     // Rebuild the professional skill checkboxes and update enabled inputs
     populateProfessionalOptions();
 
+    // Apply minimum culture allocations of 5% to each standard skill in the selected culture
+    applyCultureMinimums();
+
     // Recompute skill table and summary when culture or career changes
     buildSkillsTable();
     renderCharacterSummary();
@@ -967,6 +1200,9 @@
     // selected culture.  Updating the select may change the
     // character's social class which in turn affects starting money.
     populateSocialClassSelect();
+
+    // Update bonus skill options after culture/career changes
+    populateBonusSkillSelect();
   }
 
   /**
@@ -1039,6 +1275,11 @@
     character.startingSilver = total;
     silverDisplay.textContent = `${total} sp`;
 
+    // Reset equipment selections when new silver is generated
+    character.equipment = [];
+    // Rebuild equipment list to clear any selected items and update remaining silver
+    buildEquipmentList();
+
     // Update summary with new starting money
     renderCharacterSummary();
   }
@@ -1066,6 +1307,8 @@
       },
       skills: {},
       startingSilver: character.startingSilver || 0
+      ,
+      equipment: character.equipment.map(e => ({ name: e.name, cost: e.cost }))
     };
     // Include the chosen combat style and lists of professional skills
     data.combatStyle = character.combatStyle;
@@ -1133,6 +1376,18 @@
       }
     });
     html += '</ul>';
+
+    // Equipment
+    html += '<h4>Equipment</h4>';
+    if (character.equipment.length === 0) {
+      html += '<p>No equipment purchased.</p>';
+    } else {
+      html += '<ul class="equipment-list">';
+      character.equipment.forEach(item => {
+        html += `<li>${item.name} (${item.cost} sp)</li>`;
+      });
+      html += '</ul>';
+    }
     container.innerHTML = html;
   }
 
@@ -1338,9 +1593,12 @@
     populateSelects();
     buildAttributeInputs();
     updateDerived();
+    // Apply minimum cultural allocations on initial load before building the table
+    applyCultureMinimums();
     buildSkillsTable();
     populateCombatStyleSelect();
     populateProfessionalOptions();
+    populateBonusSkillSelect();
     // Event listeners
     navButtons.forEach(btn => btn.addEventListener('click', handleNavClick));
     ageSelect.addEventListener('change', onAgeChange);
@@ -1366,11 +1624,33 @@
         character.combatStyle = combatStyleSelect.value;
       });
     }
+
+    // Bonus skill selection
+    if (bonusSkillSelect) {
+      bonusSkillSelect.addEventListener('change', () => {
+        const old = character.bonusSkill;
+        const val = bonusSkillSelect.value;
+        // Reset allocations on the previously selected bonus skill
+        if (old && old !== val) {
+          if (character.skillAllocations[old]) {
+            character.skillAllocations[old].bonus = 0;
+          }
+        }
+        character.bonusSkill = val;
+        // Rebuild table and summary
+        buildSkillsTable();
+        renderCharacterSummary();
+      });
+    }
     rollSilverBtn.addEventListener('click', generateStartingSilver);
     exportExcelBtn.addEventListener('click', exportToExcel);
     exportPDFBtn.addEventListener('click', exportToPDF);
     exportMarkdownBtn.addEventListener('click', exportToMarkdown);
     exportJSONBtn.addEventListener('click', exportToJSON);
+
+    // Build equipment list after DOM ready.  It will show all
+    // available items and update remaining silver (0 until silver is rolled).
+    buildEquipmentList();
 
     // Render the initial character summary after all controls are built
     renderCharacterSummary();
