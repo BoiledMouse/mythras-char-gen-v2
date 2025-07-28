@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mythras Character Generator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Step 1: Character concept -->
+    <section id="step-concept" class="step">
+      <h2>Character Concept</h2>
+      <div class="form-row">
+        <label for="characterName">Character Name</label>
+        <input type="text" id="characterName" />
+      </div>
+      <div class="form-row">
+        <label for="playerName">Player Name</label>
+        <input type="text" id="playerName" />
+      </div>
+      <div class="form-row">
+        <label for="age">Age</label>
+        <input type="number" id="age" min="15" max="100" value="20" />
+      </div>
+      <div class="form-row">
+        <label for="sex">Sex</label>
+        <select id="sex">
+          <option value="">Select...</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="culture">Culture</label>
+        <select id="culture">
+          <option value="">Select culture...</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="career">Career</label>
+        <select id="career">
+          <option value="">Select career...</option>
+        </select>
+      </div>
+      <button id="next-to-attributes" class="next-button">Next: Attributes</button>
+    </section>
+
+    <!-- Step 2: Attributes -->
+    <section id="step-attributes" class="step hidden">
+      <h2>Attributes</h2>
+      <p>You can roll randomly or adjust manually.</p>
+      <button id="roll-attributes">Roll Attributes</button>
+      <table class="attributes-table">
+        <thead>
+          <tr><th>Characteristic</th><th>Value</th></tr>
+        </thead>
+        <tbody id="attributes-body">
+          <!-- rows inserted dynamically -->
+        </tbody>
+      </table>
+      <button id="next-to-skills" class="next-button">Next: Skills</button>
+    </section>
+
+    <!-- Step 3: Cultural skills allocation -->
+    <section id="step-skills-culture" class="step hidden">
+      <h2>Cultural Skill Allocation</h2>
+      <p>Distribute your cultural skill points. Points left: <span id="culture-points-left">100</span></p>
+      <div id="culture-skills-container"></div>
+      <button id="next-to-career-skills" class="next-button">Next: Career Skills</button>
+    </section>
+
+    <!-- Step 4: Career skills allocation -->
+    <section id="step-skills-career" class="step hidden">
+      <h2>Career Skill Allocation</h2>
+      <p>Distribute your career skill points. Points left: <span id="career-points-left">100</span></p>
+      <div id="career-skills-container"></div>
+      <button id="next-to-bonus-skills" class="next-button">Next: Bonus Skills</button>
+    </section>
+
+    <!-- Step 5: Bonus skill allocation -->
+    <section id="step-skills-bonus" class="step hidden">
+      <h2>Bonus Skill Allocation</h2>
+      <p>Distribute your bonus skill points. Points left: <span id="bonus-points-left">150</span></p>
+      <div class="form-row">
+        <label for="hobby-skill">Hobby Skill (optional)</label>
+        <select id="hobby-skill">
+          <option value="">--None--</option>
+        </select>
+      </div>
+      <div id="bonus-skills-container"></div>
+      <button id="next-to-equipment" class="next-button">Next: Equipment</button>
+    </section>
+
+    <!-- Step 6: Equipment -->
+    <section id="step-equipment" class="step hidden">
+      <h2>Equipment Selection</h2>
+      <div class="form-row">
+        <label for="starting-sp">Starting Silver Pieces</label>
+        <input type="number" id="starting-sp" min="0" value="0" />
+      </div>
+      <div id="equipment-container"></div>
+      <p>Total cost: <span id="equipment-total-cost">0</span> sp</p>
+      <button id="next-to-review" class="next-button">Next: Review</button>
+    </section>
+
+    <!-- Step 7: Review -->
+    <section id="step-review" class="step hidden">
+      <h2>Character Sheet</h2>
+      <div id="review-container"></div>
+      <button id="start-over" class="next-button">Start Over</button>
+    </section>
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>
