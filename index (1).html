@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mythras Character Generator</title>
+  <!--
+    This single page application implements a character creator for the Mythras
+    role‑playing game.  It follows the official sequence of character
+    generation: choosing a culture, selecting a career, assigning
+    characteristics via dice or point buy, allocating skill points from the
+    culture, career and bonus pools, and then determining starting wealth.
+    Additional export options are provided to save the resulting character
+    as an Excel spreadsheet, PDF document, Markdown text or JSON file.
+
+    The layout and styling have been customised to evoke the feel of a
+    medieval tavern: warm, wooden textures and parchment cards frame the
+    various steps.  All interactive elements live in this HTML file and the
+    accompanying script and style sheets.
+  -->
+  <link rel="stylesheet" href="style.css" />
+  <!-- External libraries for exporting data -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+</head>
+<body>
+  <div id="app">
+    <header class="overlay card">
+      <h1>Mythras Character Generator</h1>
+      <p class="subtitle">Create a unique adventurer ready for tavern tales</p>
+    </header>
+    <!-- Navigation for the different creation steps -->
+    <nav class="navbar overlay">
+      <button type="button" class="navbtn active" data-target="basic">Basic Info</button>
+      <button type="button" class="navbtn" data-target="attributes">Attributes</button>
+      <button type="button" class="navbtn" data-target="skills">Skills</button>
+      <button type="button" class="navbtn" data-target="equipment">Equipment</button>
+      <button type="button" class="navbtn" data-target="export">Export</button>
+    </nav>
+    <!-- Step 1: Basic information -->
+    <section id="basic" class="card overlay active">
+      <h2>Basic Information</h2>
+      <div class="form-group">
+        <label for="name">Character Name:</label>
+        <input type="text" id="name" />
+      </div>
+      <div class="form-group">
+        <label for="ageCat">Age Category:</label>
+        <select id="ageCat"></select>
+        <span class="small" id="ageInfo"></span>
+      </div>
+      <div class="form-group">
+        <label for="culture">Culture:</label>
+        <select id="culture"></select>
+      </div>
+      <div class="form-group">
+        <label for="career">Career:</label>
+        <select id="career"></select>
+      </div>
+      <div class="form-group">
+        <label for="socialClass">Social Class:</label>
+        <select id="socialClass">
+          <option value="Lower">Lower</option>
+          <option value="Middle" selected>Middle</option>
+          <option value="Upper">Upper</option>
+        </select>
+      </div>
+    </section>
+    <!-- Step 2: Attributes -->
+    <section id="attributes" class="card overlay">
+      <h2>Attributes</h2>
+      <div class="form-group">
+        <label for="method">Generation Method:</label>
+        <select id="method">
+          <option value="roll">Roll (3d6)</option>
+          <option value="point" selected>Point Buy</option>
+        </select>
+        <!-- Allow the user to adjust the total points available for point buy.
+             Mythras suggests a pool of 75, but making this field editable
+             lets you create higher or lower powered characters.  This
+             input is only relevant when using point buy; for rolled
+             characteristics it has no effect. -->
+        <label for="poolSize" class="small" style="margin-left:1em;">Point Pool:</label>
+        <input type="number" id="poolSize" value="75" min="60" max="120" step="1" style="width:4em;" />
+        <span id="pointPoolInfo" class="small"></span>
+      </div>
+      <div id="attributesInputs" class="attributes-grid"></div>
+      <div id="derivedAttributes" class="derived"></div>
+    </section>
+    <!-- Step 3: Skills -->
+    <section id="skills" class="card overlay">
+      <h2>Skills</h2>
+      <!-- Professional skill and combat style selection.  The lists
+           generated here allow the player to choose up to three
+           professional skills from their culture and career.  Only
+           selected professional skills will be eligible for
+           improvement via culture or career point pools.  A combat
+           style selector is also provided to name the character’s
+           fighting style. -->
+      <div id="professionalSelection" class="profession-selector">
+        <h3>Select Professional Skills</h3>
+        <p class="small">Choose up to three professional skills from your culture and up to three from your career. Selected skills become available for allocation.</p>
+        <div class="profession-select-group">
+          <div class="profession-column">
+            <strong>Culture Options:</strong>
+            <div id="cultureProOptions" class="pro-options"></div>
+          </div>
+          <div class="profession-column">
+            <strong>Career Options:</strong>
+            <div id="careerProOptions" class="pro-options"></div>
+          </div>
+        </div>
+        <div class="combat-style-select">
+          <label for="combatStyleSelect">Combat Style:</label>
+          <select id="combatStyleSelect"></select>
+        </div>
+      </div>
+      <p>Allocate your Culture, Career and Bonus points amongst the available skills.  The table below shows each skill’s base percentage (calculated from your characteristics) and allows you to assign points to improve it.  You cannot exceed the maximum increase per skill for each pool.  All remaining points must be spent before proceeding.</p>
+      <div class="skill-pools">
+        <span>Culture points remaining: <strong id="cultureRemaining"></strong></span>
+        <span>Career points remaining: <strong id="careerRemaining"></strong></span>
+        <span>Bonus points remaining: <strong id="bonusRemaining"></strong></span>
+      </div>
+      <table id="skillsTable">
+        <thead>
+          <tr>
+            <th>Skill</th>
+            <th>Base (%)</th>
+            <th>Culture</th>
+            <th>Career</th>
+            <th>Bonus</th>
+            <th>Total (%)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+    <!-- Step 4: Equipment -->
+    <section id="equipment" class="card overlay">
+      <h2>Equipment & Wealth</h2>
+      <p>Based on your culture and social standing, generate your starting silver.  You can regenerate until you are satisfied.</p>
+      <div class="form-group">
+        <button type="button" id="rollSilver" class="primary">Roll Starting Silver</button>
+        <span id="silverAmount" class="silver-display"></span>
+      </div>
+    </section>
+    <!-- Step 5: Export -->
+    <section id="export" class="card overlay">
+      <h2>Export Character</h2>
+      <p>Review your finished character below.  The summary updates as you make changes.
+        When you are satisfied, use the buttons to download your character in various formats.</p>
+      <div id="characterSummary" class="character-summary"></div>
+      <div class="export-buttons">
+        <button type="button" id="exportExcel" class="primary">Download Excel</button>
+        <button type="button" id="exportPDF" class="primary">Download PDF</button>
+        <button type="button" id="exportMarkdown" class="primary">Download Markdown</button>
+        <button type="button" id="exportJSON" class="primary">Download JSON</button>
+      </div>
+    </section>
+  </div>
+  <script src="script.js" defer></script>
+</body>
+</html>
