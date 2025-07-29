@@ -78,6 +78,63 @@
     'Willpower':     { formula: a => a.POW * 2 }
   };
 
+  // Human‑readable formula strings for each skill.  These are used to
+  // display how a base percentage is derived.  Entries not listed
+  // default to an empty string.
+  const skillFormulaStrings = {
+    // Standard skills
+    'Athletics': 'STR+DEX',
+    'Boating': 'STR+CON',
+    'Brawn': 'STR+SIZ',
+    'Conceal': 'DEX+POW',
+    'Customs': 'INT*2 +40',
+    'Dance': 'DEX+CHA',
+    'Deceit': 'INT+CHA',
+    'Drive': 'DEX+POW',
+    'Endurance': 'CON*2',
+    'Evade': 'DEX*2',
+    'First Aid': 'INT+DEX',
+    'Influence': 'CHA*2',
+    'Insight': 'INT+POW',
+    'Locale': 'INT*2',
+    'Native Tongue': 'INT+CHA +40',
+    'Perception': 'INT+POW',
+    'Ride': 'DEX+POW',
+    'Sing': 'CHA+POW',
+    'Stealth': 'DEX+INT',
+    'Swim': 'STR+CON',
+    'Unarmed': 'STR+DEX',
+    'Willpower': 'POW*2',
+    // Professional skills
+    'Acting': 'CHA*2',
+    'Acrobatics': 'STR+DEX',
+    'Art': 'POW+CHA',
+    'Bureaucracy': 'INT*2',
+    'Commerce': 'INT+CHA',
+    'Courtesy': 'INT+CHA',
+    'Craft': 'DEX+INT',
+    'Culture': 'INT*2',
+    'Disguise': 'INT+CHA',
+    'Engineering': 'INT*2',
+    'Gambling': 'INT+POW',
+    'Healing': 'INT+POW',
+    'Language': 'INT+CHA',
+    'Literacy': 'INT*2',
+    'Lockpicking': 'DEX*2',
+    'Lore': 'INT*2',
+    'Mechanisms': 'DEX+INT',
+    'Musicianship': 'DEX+CHA',
+    'Navigation': 'INT+POW',
+    'Oratory': 'POW+CHA',
+    'Seamanship': 'INT+CON',
+    'Seduction': 'INT+CHA',
+    'Sleight': 'DEX+CHA',
+    'Streetwise': 'POW+CHA',
+    'Survival': 'CON+POW',
+    'Teach': 'INT+CHA',
+    'Track': 'INT+CON'
+  };
+
   // Professional skill definitions.  Unknown professional skills default
   // to a base of 0.  Feel free to add or override entries here.
   const professionalSkills = {
@@ -238,6 +295,23 @@
     equipment: []
   };
 
+  // Point buy settings
+  // When using the point‑buy method for attributes, the base line for each
+  // attribute is considered to be 10 points (yielding a baseline sum of 70
+  // across seven attributes).  The poolTotal defines how many extra points
+  // may be allocated above this baseline; the remaining pool is computed
+  // automatically.  You can adjust poolTotal via the HTML if desired.
+  character.pointPoolTotal = 75;
+  character.pointPoolRemaining = 75;
+
+  // Selected professional skills for culture and career.  Users
+  // may choose up to three professional skills from their culture and
+  // career lists to allocate Culture or Career points.  These sets
+  // contain the skill names chosen via the checkboxes rendered by
+  // renderProfessionalSelectors().
+  let selectedCultureProfs = new Set();
+  let selectedCareerProfs = new Set();
+
   /* ----------------------------------------------------------------------
    * Utility functions
    */
@@ -338,18 +412,155 @@
   function computeSkillBase(skillName, attrs) {
     // Normalise to remove parentheses e.g. 'Lore (any)' -> 'Lore'
     const key = skillName.split('(')[0].trim();
+    let val = 0;
     if (standardSkills[key]) {
-      return standardSkills[key].formula(attrs);
+      val = standardSkills[key].formula(attrs);
+    } else if (professionalSkills[key]) {
+      val = professionalSkills[key].formula(attrs);
+    } else {
+      val = 0;
     }
-    if (professionalSkills[key]) {
-      return professionalSkills[key].formula(attrs);
-    }
-    return 0;
+    // Mythras rule: any skill has at least 5%.  Customs and Native Tongue
+    // already include their bonuses via the formula definition.
+    return Math.max(5, val);
   }
 
   // Format a percentage value with two digits of padding.  E.g. 5 -> '05%'
   function pct(value) {
     return `${value.toString().padStart(2, '0')}%`;
+  }
+
+  /* ----------------------------------------------------------------------
+   * Point‑buy helper functions
+   */
+
+  // Compute and update the remaining points when using the point‑buy
+  // method.  The baseline total for attributes is 70 (10 points per
+  // attribute).  Remaining = poolTotal + baselineSum − sum(attributes).
+  function updatePointPoolDisplay() {
+    const baselineSum = 70;
+    const sumVals = Object.values(character.attributes).reduce((a, b) => a + b, 0);
+    const remaining = character.pointPoolTotal + baselineSum - sumVals;
+    character.pointPoolRemaining = remaining;
+    const poolElem = $('pointPool');
+    poolElem.textContent = `Point Pool: ${remaining}`;
+    if (remaining < 0) {
+      poolElem.style.color = 'red';
+    } else {
+      poolElem.style.color = '';
+    }
+  }
+
+  // Render checkboxes for selecting up to three professional skills for
+  // both culture and career.  This function populates the
+  // #cultureProfs and #careerProfs containers with checkboxes and
+  // attaches change listeners to enforce the selection limit.
+  function renderProfessionalSelectors() {
+    const cul = cultures[character.culture];
+    const car = careers[character.career];
+    const culContainer = $('cultureProfs');
+    const carContainer = $('careerProfs');
+    // Clear existing
+    culContainer.innerHTML = '';
+    carContainer.innerHTML = '';
+    // Helper to create checkboxes
+    function createCheckbox(skill, type) {
+      const id = `${type}-${skill.replace(/\s+/g, '_').replace(/[^\w]/g, '')}`;
+      const label = document.createElement('label');
+      label.style.display = 'inline-block';
+      label.style.marginRight = '0.5rem';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.id = id;
+      cb.value = skill;
+      // Set checked state based on selection set
+      if (type === 'culture') {
+        cb.checked = selectedCultureProfs.has(skill);
+      } else {
+        cb.checked = selectedCareerProfs.has(skill);
+      }
+      cb.addEventListener('change', () => {
+        if (type === 'culture') {
+          if (cb.checked) {
+            // add
+            if (selectedCultureProfs.size >= 3) {
+              // limit reached: revert
+              cb.checked = false;
+              alert('You may select up to 3 culture professional skills');
+              return;
+            }
+            selectedCultureProfs.add(skill);
+          } else {
+            selectedCultureProfs.delete(skill);
+            // Reset any allocations for this skill to culture pool
+            if (character.skillAlloc[skill]) {
+              character.pools.culture += character.skillAlloc[skill].culture;
+              character.skillAlloc[skill].culture = 0;
+            }
+          }
+        } else {
+          if (cb.checked) {
+            if (selectedCareerProfs.size >= 3) {
+              cb.checked = false;
+              alert('You may select up to 3 career professional skills');
+              return;
+            }
+            selectedCareerProfs.add(skill);
+          } else {
+            selectedCareerProfs.delete(skill);
+            if (character.skillAlloc[skill]) {
+              character.pools.career += character.skillAlloc[skill].career;
+              character.skillAlloc[skill].career = 0;
+            }
+          }
+        }
+        updatePoolsDisplay();
+        updateSkillTable();
+        updateSummary();
+      });
+      label.appendChild(cb);
+      const span = document.createElement('span');
+      span.textContent = ` ${skill}`;
+      label.appendChild(span);
+      return label;
+    }
+    // Culture professional skills
+    cul.professional.forEach(skill => {
+      culContainer.appendChild(createCheckbox(skill, 'culture'));
+    });
+    // Career professional skills
+    car.professional.forEach(skill => {
+      carContainer.appendChild(createCheckbox(skill, 'career'));
+    });
+  }
+
+  // Handle change of generation method (roll vs point buy).  Show
+  // appropriate controls and initialise point pool when necessary.
+  function methodChanged() {
+    const methodSel = $('method');
+    const selected = methodSel.value;
+    if (selected === 'roll') {
+      $('rollBtnContainer').style.display = 'block';
+      $('pointPool').style.display = 'none';
+    } else {
+      // point buy
+      $('rollBtnContainer').style.display = 'none';
+      $('pointPool').style.display = 'block';
+      // Initialise pool from data attribute if provided, else keep existing
+      const defaultPool = parseInt($('pointPool').dataset.pool, 10) || 75;
+      character.pointPoolTotal = defaultPool;
+      // Reset attributes to baseline 10 for fresh point buy
+      ['STR','CON','SIZ','DEX','INT','POW','CHA'].forEach(key => {
+        // Reset every attribute to baseline 10 when switching to point buy
+        character.attributes[key] = 10;
+        $(key).value = 10;
+      });
+      updatePointPoolDisplay();
+      updateDerivedDisplay();
+      updateSkillTable();
+      updatePoolsDisplay();
+      updateSummary();
+    }
   }
 
   /* ----------------------------------------------------------------------
@@ -409,6 +620,9 @@
     updatePoolsDisplay();
     updateSkillTable();
     updateSummary();
+    // Reset selected culture professional skills and render selectors
+    selectedCultureProfs.clear();
+    renderProfessionalSelectors();
   }
 
   // Update the career options when a career is selected.
@@ -422,6 +636,18 @@
     updatePoolsDisplay();
     updateSkillTable();
     updateSummary();
+    // Reset selected career professional skills and render selectors
+    selectedCareerProfs.clear();
+    renderProfessionalSelectors();
+  }
+
+  // Normalize a skill name by stripping any parenthetical qualifier.
+  // For example, "Craft (any)" and "Craft (Alchemy)" both normalise
+  // to "Craft".  This allows the allocation logic to treat all
+  // variations of a base skill as the same for the purposes of
+  // determining whether culture or career points may be spent on it.
+  function normalizeSkillName(name) {
+    return name.replace(/\s*\(.*\)/, '').trim();
   }
 
   // Build the skills table based on selected culture, career and any
@@ -432,30 +658,56 @@
     const tableBody = $('skillsTableBody');
     tableBody.innerHTML = '';
     // Determine which skills should appear: all standard skills plus
-    // selected culture and career professional skills
+    // selected culture and career skills.  We'll also include any
+    // skills that the user has allocated points to already.
     const skillSet = new Set(Object.keys(standardSkills));
-    // Add culture standard and professional skills
     const cul = cultures[character.culture];
+    const car = careers[character.career];
     cul.standard.forEach(s => skillSet.add(s));
     cul.professional.forEach(s => skillSet.add(s));
-    // Add career standard and professional skills
-    const car = careers[character.career];
     car.standard.forEach(s => skillSet.add(s));
     car.professional.forEach(s => skillSet.add(s));
-    // Add any skills already allocated
     Object.keys(character.skillAlloc).forEach(s => skillSet.add(s));
     // Convert to sorted array
     const skills = Array.from(skillSet).sort();
+    // Precompute allowed sets for culture and career pools.  Culture
+    // points may be spent on culture standard skills and on the
+    // user‑selected culture professional skills; career points may be
+    // spent on career standard skills and on the selected career
+    // professional skills.
+    // Determine which base skills may receive culture or career points.  We
+    // normalise all entries to their base name to match professional
+    // selections such as "Craft (any)" against table rows like
+    // "Craft (Primary)".  selectedCultureProfs and selectedCareerProfs
+    // may contain fully qualified names such as "Craft (any)";
+    // normalising both sides ensures consistent membership tests.
+    const cultureAllowed = new Set([
+      ...cul.standard.map(normalizeSkillName),
+      ...Array.from(selectedCultureProfs).map(normalizeSkillName)
+    ]);
+    const careerAllowed = new Set([
+      ...car.standard.map(normalizeSkillName),
+      ...Array.from(selectedCareerProfs).map(normalizeSkillName)
+    ]);
     skills.forEach(skill => {
       const tr = document.createElement('tr');
+      // Determine if this skill is relevant to culture or career
+      // Normalise the row skill name for membership tests
+      const baseName = normalizeSkillName(skill);
+      const isCultureSkill = cultureAllowed.has(baseName);
+      const isCareerSkill = careerAllowed.has(baseName);
+      if (isCultureSkill || isCareerSkill) {
+        tr.classList.add('skill-allowed');
+      }
       // Name cell
       const nameTd = document.createElement('td');
       nameTd.textContent = skill;
       tr.appendChild(nameTd);
-      // Base value cell
+      // Base value cell with formula display
       const baseTd = document.createElement('td');
       const base = computeSkillBase(skill, character.attributes);
-      baseTd.textContent = pct(base);
+      const formula = skillFormulaStrings[skill] || '';
+      baseTd.innerHTML = `<span>${pct(base)}</span>${formula ? `<br><small class="formula">${formula}</small>` : ''}`;
       tr.appendChild(baseTd);
       // Culture allocation
       const culTd = document.createElement('td');
@@ -464,25 +716,30 @@
       culInput.min = 0;
       culInput.max = ageCategories[character.age].max;
       culInput.value = character.skillAlloc[skill]?.culture || 0;
+      if (!isCultureSkill) {
+        culInput.disabled = true;
+        culInput.classList.add('disabled');
+      }
       culInput.oninput = () => {
-        const val = parseInt(culInput.value, 10) || 0;
+        let v = parseInt(culInput.value, 10) || 0;
         const maxAlloc = ageCategories[character.age].max;
-        if (val > maxAlloc) {
+        // Clamp to maximum but continue processing
+        if (v > maxAlloc) {
+          v = maxAlloc;
           culInput.value = maxAlloc;
-          return;
         }
         if (!character.skillAlloc[skill]) character.skillAlloc[skill] = { culture: 0, career: 0, bonus: 0 };
-        const diff = val - character.skillAlloc[skill].culture;
+        const diff = v - character.skillAlloc[skill].culture;
         if (character.pools.culture - diff < 0) {
+          // Not enough points, revert input
           culInput.value = character.skillAlloc[skill].culture;
           return;
         }
-        character.skillAlloc[skill].culture = val;
+        character.skillAlloc[skill].culture = v;
         character.pools.culture -= diff;
         updatePoolsDisplay();
         updateSummary();
-        // Update total cell only
-        const total = base + val + (character.skillAlloc[skill].career) + (character.skillAlloc[skill].bonus);
+        const total = base + v + (character.skillAlloc[skill].career) + (character.skillAlloc[skill].bonus);
         totalTd.textContent = pct(total);
       };
       culTd.appendChild(culInput);
@@ -494,24 +751,28 @@
       carInput.min = 0;
       carInput.max = ageCategories[character.age].max;
       carInput.value = character.skillAlloc[skill]?.career || 0;
+      if (!isCareerSkill) {
+        carInput.disabled = true;
+        carInput.classList.add('disabled');
+      }
       carInput.oninput = () => {
-        const val = parseInt(carInput.value, 10) || 0;
+        let v = parseInt(carInput.value, 10) || 0;
         const maxAlloc = ageCategories[character.age].max;
-        if (val > maxAlloc) {
+        if (v > maxAlloc) {
+          v = maxAlloc;
           carInput.value = maxAlloc;
-          return;
         }
         if (!character.skillAlloc[skill]) character.skillAlloc[skill] = { culture: 0, career: 0, bonus: 0 };
-        const diff = val - character.skillAlloc[skill].career;
+        const diff = v - character.skillAlloc[skill].career;
         if (character.pools.career - diff < 0) {
           carInput.value = character.skillAlloc[skill].career;
           return;
         }
-        character.skillAlloc[skill].career = val;
+        character.skillAlloc[skill].career = v;
         character.pools.career -= diff;
         updatePoolsDisplay();
         updateSummary();
-        const total = base + (character.skillAlloc[skill].culture) + val + (character.skillAlloc[skill].bonus);
+        const total = base + (character.skillAlloc[skill].culture) + v + (character.skillAlloc[skill].bonus);
         totalTd.textContent = pct(total);
       };
       carTd.appendChild(carInput);
@@ -524,23 +785,23 @@
       bonusInput.max = ageCategories[character.age].max;
       bonusInput.value = character.skillAlloc[skill]?.bonus || 0;
       bonusInput.oninput = () => {
-        const val = parseInt(bonusInput.value, 10) || 0;
+        let v = parseInt(bonusInput.value, 10) || 0;
         const maxAlloc = ageCategories[character.age].max;
-        if (val > maxAlloc) {
+        if (v > maxAlloc) {
+          v = maxAlloc;
           bonusInput.value = maxAlloc;
-          return;
         }
         if (!character.skillAlloc[skill]) character.skillAlloc[skill] = { culture: 0, career: 0, bonus: 0 };
-        const diff = val - character.skillAlloc[skill].bonus;
+        const diff = v - character.skillAlloc[skill].bonus;
         if (character.pools.bonus - diff < 0) {
           bonusInput.value = character.skillAlloc[skill].bonus;
           return;
         }
-        character.skillAlloc[skill].bonus = val;
+        character.skillAlloc[skill].bonus = v;
         character.pools.bonus -= diff;
         updatePoolsDisplay();
         updateSummary();
-        const total = base + (character.skillAlloc[skill].culture) + (character.skillAlloc[skill].career) + val;
+        const total = base + (character.skillAlloc[skill].culture) + (character.skillAlloc[skill].career) + v;
         totalTd.textContent = pct(total);
       };
       bonusTd.appendChild(bonusInput);
@@ -585,8 +846,34 @@
   // dependent values.
   function attributeInputChanged(evt) {
     const key = evt.target.id;
-    const val = parseInt(evt.target.value, 10) || 0;
-    character.attributes[key] = val;
+    let newVal = parseInt(evt.target.value, 10) || 0;
+    // Minimum and maximum values based on Mythras rules: most attributes
+    // range from 3–18 but INT and SIZ have a minimum of 8 because
+    // they are normally generated by 2d6+6.  Cap all values at 18.
+    const min = (key === 'SIZ' || key === 'INT') ? 8 : 3;
+    if (newVal < min) newVal = min;
+    if (newVal > 18) newVal = 18;
+    // If using point buy, enforce pool restrictions
+    if ($('method').value === 'point') {
+      // Compute tentative remaining after this change
+      const oldVal = character.attributes[key];
+      character.attributes[key] = newVal;
+      updatePointPoolDisplay();
+      if (character.pointPoolRemaining < 0) {
+        // Not enough points: revert to old value
+        character.attributes[key] = oldVal;
+        evt.target.value = oldVal;
+        updatePointPoolDisplay();
+        return;
+      } else {
+        // Accept change
+        evt.target.value = newVal;
+      }
+    } else {
+      // Roll or manual method: accept new value
+      character.attributes[key] = newVal;
+      evt.target.value = newVal;
+    }
     updateDerivedDisplay();
     updateSkillTable();
     updateSummary();
@@ -658,6 +945,7 @@
       <p><strong>Attributes:</strong> STR ${character.attributes.STR}, CON ${character.attributes.CON}, SIZ ${character.attributes.SIZ}, DEX ${character.attributes.DEX}, INT ${character.attributes.INT}, POW ${character.attributes.POW}, CHA ${character.attributes.CHA}</p>
       <p><strong>Top Skills:</strong></p>
       <ul>${top.map(r => `<li>${r.skill}: ${pct(r.total)}</li>`).join('')}</ul>
+      <p><strong>Equipment:</strong> ${character.equipment.length > 0 ? character.equipment.join(', ') : '(none)'}</p>
     `;
   }
 
@@ -681,6 +969,9 @@
     ['STR','CON','SIZ','DEX','INT','POW','CHA'].forEach(key => {
       $(key).addEventListener('input', attributeInputChanged);
     });
+
+    // Generation method selector
+    $('method').addEventListener('change', methodChanged);
     // Navigation buttons
     document.querySelectorAll('.navbtn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -703,7 +994,10 @@
     updatePoolsDisplay();
     updateSummary();
 
-    // Populate equipment list once
+    // Apply initial method settings (roll vs point buy)
+    methodChanged();
+
+    // Populate equipment list once with purchase buttons
     const eqList = $('equipmentList');
     eqList.innerHTML = '';
     Object.keys(equipment).forEach(cat => {
@@ -715,7 +1009,29 @@
       const ul = document.createElement('ul');
       equipment[cat].forEach(item => {
         const li = document.createElement('li');
-        li.textContent = `${item.name} — ${item.cost} sp`;
+        // Display item name and cost
+        const label = document.createElement('span');
+        label.textContent = `${item.name} — ${item.cost} sp`;
+        li.appendChild(label);
+        // Purchase button
+        const btn = document.createElement('button');
+        btn.textContent = 'Buy';
+        btn.style.marginLeft = '0.5rem';
+        btn.addEventListener('click', () => {
+          if (character.money < item.cost) {
+            alert('Not enough silver to purchase this item.');
+            return;
+          }
+          character.money -= item.cost;
+          $('silverDisplay').textContent = `${character.money} sp`;
+          character.equipment.push(item.name);
+          // Append to purchased items list
+          const li2 = document.createElement('li');
+          li2.textContent = item.name;
+          $('purchasedList').appendChild(li2);
+          updateSummary();
+        });
+        li.appendChild(btn);
         ul.appendChild(li);
       });
       wrapper.appendChild(ul);

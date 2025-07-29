@@ -149,6 +149,40 @@ th {
   color: #3c2f28;
 }
 
+/* Highlight skills that belong to the selected culture or career */
+/* Highlight skills that belong to the selected culture or career */
+.skill-allowed {
+  /* Use a light parchment tone distinct from the alternating row colour */
+  background-color: #fff3e0;
+}
+
+/* Disabled input fields for skills not relevant to culture or career */
+input.disabled {
+  background-color: #f3e5d6;
+  color: #8a7a6c;
+  cursor: not-allowed;
+}
+
+/* Formula text for skill base values */
+.formula {
+  font-size: 0.75rem;
+  color: #5c3d2e;
+}
+
+/* Optional skill selector styling */
+.optional-selectors {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #d7c3a3;
+}
+.optional-selectors label {
+  margin-right: 0.75rem;
+  white-space: nowrap;
+}
+.optional-selectors input[type="checkbox"] {
+  margin-right: 0.25rem;
+}
+
 /* Derived statistics styling */
 .derived div {
   margin-bottom: 0.3rem;

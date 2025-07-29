@@ -65,6 +65,14 @@
     <section id="attributes" class="card overlay">
       <h2>Attributes</h2>
       <div class="form-group">
+        <label for="method">Generation Method:</label>
+        <select id="method">
+          <option value="roll">Roll (3d6)</option>
+          <option value="point">Point Buy</option>
+        </select>
+      </div>
+      <div id="pointPool" class="small" data-pool="75" style="display:none; margin-bottom:0.5rem;">Point Pool: 75</div>
+      <div class="form-group" id="rollBtnContainer">
         <button id="rollAttrBtn" type="button">Roll Attributes</button>
       </div>
       <div id="attributesInputs" class="attributes-grid">
@@ -102,6 +110,17 @@
           <tbody id="skillsTableBody"></tbody>
         </table>
       </div>
+      <!-- Optional skill selection for culture and career -->
+      <div class="optional-selectors">
+        <div id="cultureProfsContainer">
+          <p><strong>Choose up to 3 culture professional skills to allocate Culture points:</strong></p>
+          <div id="cultureProfs"></div>
+        </div>
+        <div id="careerProfsContainer" style="margin-top: 1rem;">
+          <p><strong>Choose up to 3 career professional skills to allocate Career points:</strong></p>
+          <div id="careerProfs"></div>
+        </div>
+      </div>
     </section>
     <!-- Step 4: Equipment -->
     <section id="equipment" class="card overlay">
@@ -110,8 +129,11 @@
       <button id="rollSilverBtn" type="button">Roll Starting Silver</button>
       <p style="margin-top:0.5rem;">Starting Silver: <strong id="silverDisplay">0 sp</strong></p>
       <h3>Available Equipment</h3>
-      <p>Items are grouped by type. Currently purchases are not subtracted from your total silver, but you may track them manually.</p>
+      <p>Items are grouped by type. Click "Buy" to purchase an item and deduct its cost from your silver. Purchased items will appear below.</p>
       <div id="equipmentList"></div>
+
+      <h3>Purchased Items</h3>
+      <ul id="purchasedList"></ul>
     </section>
     <!-- Step 5: Summary -->
     <section id="summary" class="card overlay">
