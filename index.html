@@ -76,13 +76,13 @@
         <button id="rollAttrBtn" type="button">Roll Attributes</button>
       </div>
       <div id="attributesInputs" class="attributes-grid">
-        <div class="attr-row"><label for="STR">STR:</label><input type="number" id="STR" min="1" max="21" value="10" /></div>
-        <div class="attr-row"><label for="CON">CON:</label><input type="number" id="CON" min="1" max="21" value="10" /></div>
-        <div class="attr-row"><label for="SIZ">SIZ:</label><input type="number" id="SIZ" min="1" max="21" value="10" /></div>
-        <div class="attr-row"><label for="DEX">DEX:</label><input type="number" id="DEX" min="1" max="21" value="10" /></div>
-        <div class="attr-row"><label for="INT">INT:</label><input type="number" id="INT" min="1" max="21" value="10" /></div>
-        <div class="attr-row"><label for="POW">POW:</label><input type="number" id="POW" min="1" max="21" value="10" /></div>
-        <div class="attr-row"><label for="CHA">CHA:</label><input type="number" id="CHA" min="1" max="21" value="10" /></div>
+        <div class="attr-row"><label for="STR">STR:</label><input type="number" id="STR" min="3" max="18" value="10" /></div>
+        <div class="attr-row"><label for="CON">CON:</label><input type="number" id="CON" min="3" max="18" value="10" /></div>
+        <div class="attr-row"><label for="SIZ">SIZ:</label><input type="number" id="SIZ" min="8" max="18" value="10" /></div>
+        <div class="attr-row"><label for="DEX">DEX:</label><input type="number" id="DEX" min="3" max="18" value="10" /></div>
+        <div class="attr-row"><label for="INT">INT:</label><input type="number" id="INT" min="8" max="18" value="10" /></div>
+        <div class="attr-row"><label for="POW">POW:</label><input type="number" id="POW" min="3" max="18" value="10" /></div>
+        <div class="attr-row"><label for="CHA">CHA:</label><input type="number" id="CHA" min="3" max="18" value="10" /></div>
       </div>
       <div id="derived" class="derived"></div>
     </section>
@@ -119,6 +119,11 @@
         <div id="careerProfsContainer" style="margin-top: 1rem;">
           <p><strong>Choose up to 3 career professional skills to allocate Career points:</strong></p>
           <div id="careerProfs"></div>
+        </div>
+        <div id="bonusSkillContainer" style="margin-top: 1rem;">
+          <p><strong>Select one bonus skill:</strong></p>
+          <select id="bonusSkill"></select>
+          <p class="small">This skill gains an automatic bonus allocation.</p>
         </div>
       </div>
     </section>

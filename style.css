@@ -183,6 +183,17 @@ input.disabled {
   margin-right: 0.25rem;
 }
 
+/* Bonus skill selector */
+#bonusSkillContainer select {
+  width: 100%;
+  padding: 0.4rem;
+  border: 1px solid #d7c3a3;
+  border-radius: 4px;
+  background-color: #fffaf3;
+  color: #3c2f28;
+  font-size: 1rem;
+}
+
 /* Derived statistics styling */
 .derived div {
   margin-bottom: 0.3rem;
@@ -256,4 +267,17 @@ section.active {
 }
 #summaryContent li {
   margin-bottom: 0.2rem;
+}
+
+/* Summary section headings */
+#summaryContent h3 {
+  margin-top: 1rem;
+  margin-bottom: 0.4rem;
+  color: #5c3d2e;
+  border-bottom: 1px solid #d7c3a3;
+  padding-bottom: 0.2rem;
+}
+#summaryContent p {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
 }
