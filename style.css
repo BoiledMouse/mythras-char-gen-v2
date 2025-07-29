@@ -12,7 +12,8 @@ body {
   margin: 0;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   color: #3b2a19;
-  background: url('images/tavern.png') no-repeat center center fixed;
+  /* Use a blurred, abstract tavern background to improve readability */
+  background: url('images/new_tavern.png') no-repeat center center fixed;
   background-size: cover;
 }
 
@@ -155,6 +156,13 @@ table {
   border-collapse: collapse;
   /* Lightened table background */
   background-color: rgba(255, 250, 240, 0.99);
+}
+
+/* Style for formula strings displayed alongside skill names */
+.formula {
+  font-size: 0.75rem;
+  color: #7a5234;
+  margin-left: 4px;
 }
 
 th, td {
@@ -307,7 +315,8 @@ input.skill-input:disabled {
   font-size: 1.2rem;
   font-weight: bold;
   margin-left: 15px;
-  color: #522d13;
+  /* Darker colour for better contrast on light backgrounds */
+  color: #3b2a19;
 }
 
 .export-buttons {

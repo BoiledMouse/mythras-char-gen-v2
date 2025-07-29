@@ -151,6 +151,39 @@
     'Combat Style': a => a.STR + a.DEX
   };
 
+  // Human‑readable representations of the formulas used to calculate
+  // the base values for standard skills.  Each entry uses attribute
+  // abbreviations that will be replaced with the character's
+  // current attribute values when displayed in the skills table.  For
+  // example, 'STR+DEX' becomes 'STR (10) + DEX (10)'.  Multipliers
+  // are represented using '*', and constants such as +40 are
+  // included verbatim.
+  const standardSkillFormulaStrings = {
+    'Athletics': 'STR + DEX',
+    'Boating': 'STR + CON',
+    'Brawn': 'STR + SIZ',
+    'Conceal': 'DEX + POW',
+    'Customs': 'INT * 2 + 40',
+    'Dance': 'DEX + CHA',
+    'Deceit': 'INT + CHA',
+    'Drive': 'DEX + POW',
+    'Endurance': 'CON * 2',
+    'Evade': 'DEX * 2',
+    'First Aid': 'INT + DEX',
+    'Influence': 'CHA * 2',
+    'Insight': 'INT + POW',
+    'Locale': 'INT * 2',
+    'Native Tongue': 'INT + CHA + 40',
+    'Perception': 'INT + POW',
+    'Ride': 'DEX + POW',
+    'Sing': 'CHA + POW',
+    'Stealth': 'DEX + INT',
+    'Swim': 'STR + CON',
+    'Unarmed': 'STR + DEX',
+    'Willpower': 'POW * 2',
+    'Combat Style': 'STR + DEX'
+  };
+
   // Professional skills.  Any skill listed here that does not exist in
   // standardSkillFormulas will receive a base of 0.  The list is
   // compiled from the cultures and careers defined below.
@@ -166,7 +199,13 @@
 
   // Cultural definitions taken from the SRD【394499632944594†L660-L679】【394499632944594†L695-L699】【394499632944594†L714-L719】【394499632944594†L735-L741】.  Each culture
   // lists the standard skills available to it and the professional
-  // skills from which the player may select up to three.
+  // skills from which the player may select up to three.  Some
+  // cultures also offer an optional set of standard skills from
+  // which the player must choose one.  This is used, for example,
+  // by the Nomadic culture where a player selects one of Athletics,
+  // Boating or Swim as their cultural speciality.  The chosen
+  // optional skill is treated as a standard skill for the purpose
+  // of minimum allocation and pool eligibility.
   const cultures = {
     Barbarian: {
       standard: ['Athletics','Brawn','Endurance','First Aid','Locale','Perception','Boating','Ride','Combat Style'],
@@ -177,7 +216,14 @@
       professional: ['Art','Commerce','Craft','Courtesy','Language','Lore','Musicianship','Streetwise']
     },
     Nomadic: {
-      standard: ['Endurance','First Aid','Locale','Perception','Stealth','Athletics','Boating','Swim','Drive','Ride','Combat Style'],
+      // The Nomadic culture grants a choice of one of Athletics,
+      // Boating or Swim as a standard skill.  The remaining two
+      // skills are not automatically granted but may be taken as
+      // professional skills if offered by the career.  The
+      // selectedOptional property on the character records the
+      // player's choice.
+      standard: ['Endurance','First Aid','Locale','Perception','Stealth','Drive','Ride','Combat Style'],
+      optional: ['Athletics','Boating','Swim'],
       professional: ['Craft','Culture','Language','Lore','Musicianship','Navigation','Survival','Track']
     },
     Primitive: {
@@ -280,6 +326,17 @@
       standard: ['Customs','Dance','Deceit','Influence','Insight','Locale','Willpower'],
       professional: ['Bureaucracy','Courtesy','Customs','Literacy','Lore','Oratory','Politics']
     }
+    ,
+    // Added missing career: Alchemist.  As per the Mythras rules,
+    // alchemists concern themselves with creating or trading in
+    // chemical and herbal substances.  Standard skills are
+    // Customs, Endurance, First Aid, Insight, Locale, Perception,
+    // Willpower.  Professional skills include Commerce, Craft
+    // (Alchemy), Healing, Language, Literacy, Lore and Streetwise.
+    Alchemist: {
+      standard: ['Customs','Endurance','First Aid','Insight','Locale','Perception','Willpower'],
+      professional: ['Commerce','Craft','Healing','Language','Literacy','Lore','Streetwise']
+    }
   };
 
   // A helper to merge the sets of all skill names used across
@@ -329,6 +386,10 @@
     // career lists.  Empty string when none selected.
     bonusSkill: ''
     ,
+    // Optional cultural skill (for cultures that allow a choice of
+    // standard skill, e.g., Nomadic).  When present, this skill is
+    // treated as a standard skill for the selected culture.
+    selectedCultureOptionalSkill: '',
     // Equipment selected by the player.  This will be populated
     // when purchasing items in the equipment step.  Each entry is
     // an object with name and cost.
@@ -374,6 +435,10 @@
   // Bonus skill select element
   const bonusSkillSelect = document.getElementById('bonusSkillSelect');
 
+  // Elements for cultural optional skill selection
+  const cultureOptionalContainer = document.getElementById('cultureOptionalContainer');
+  const cultureOptionalSelect = document.getElementById('cultureOptionalSelect');
+
   // Elements for equipment selection
   const equipmentListDiv = document.getElementById('equipmentList');
   const remainingSilverSpan = document.getElementById('remainingSilver');
@@ -412,6 +477,10 @@
     // culture's options.  It is refreshed when the culture is
     // changed by the user.
     populateSocialClassSelect();
+
+    // Populate optional cultural skill selector if applicable for the
+    // initially selected culture
+    populateCultureOptionalSelect();
   }
 
   /**
@@ -509,6 +578,48 @@
     } else {
       bonusSkillSelect.value = '';
       character.bonusSkill = '';
+    }
+  }
+
+  /**
+   * Populate the cultural optional skill selector.  Some cultures
+   * allow the player to choose one of several skills to count as
+   * standard.  When the current culture has an optional list, this
+   * function displays a select box with those options.  If a
+   * previous choice exists and remains valid, it is retained;
+   * otherwise the first option is selected.  If the culture has no
+   * optional skills the selector is hidden and the stored
+   * selection is cleared.
+   */
+  function populateCultureOptionalSelect() {
+    if (!cultureOptionalSelect || !cultureOptionalContainer) return;
+    const def = cultures[character.culture];
+    if (def && Array.isArray(def.optional) && def.optional.length > 0) {
+      cultureOptionalContainer.style.display = '';
+      const options = def.optional;
+      // Filter current selection
+      if (!options.includes(character.selectedCultureOptionalSkill)) {
+        character.selectedCultureOptionalSkill = '';
+      }
+      cultureOptionalSelect.innerHTML = '';
+      options.forEach(skill => {
+        const opt = document.createElement('option');
+        opt.value = skill;
+        opt.textContent = skill;
+        cultureOptionalSelect.appendChild(opt);
+      });
+      // Default to first if none selected
+      if (character.selectedCultureOptionalSkill) {
+        cultureOptionalSelect.value = character.selectedCultureOptionalSkill;
+      } else {
+        character.selectedCultureOptionalSkill = options[0];
+        cultureOptionalSelect.value = options[0];
+      }
+    } else {
+      // No optional skills
+      character.selectedCultureOptionalSkill = '';
+      cultureOptionalContainer.style.display = 'none';
+      cultureOptionalSelect.innerHTML = '';
     }
   }
 
@@ -615,6 +726,28 @@
     // After changing professional skills the table and summary need
     // rebuilding to reflect which skills are visible and which are
     // available for allocation.
+    buildSkillsTable();
+    renderCharacterSummary();
+  }
+
+  /**
+   * Handle changes to the cultural optional skill.  When the
+   * selection changes, update the character property and rebuild
+   * skills to treat the new skill as standard.  Allocations for
+   * the previously selected optional skill are cleared.
+   */
+  function onCultureOptionalChange() {
+    const prev = character.selectedCultureOptionalSkill;
+    character.selectedCultureOptionalSkill = cultureOptionalSelect.value;
+    // Clear culture allocations for previously selected optional skill if different
+    if (prev && prev !== character.selectedCultureOptionalSkill) {
+      if (character.skillAllocations[prev]) {
+        character.skillAllocations[prev].culture = 0;
+      }
+    }
+    // Enforce minimum on newly selected optional skill
+    applyCultureMinimums();
+    // Rebuild table and summary
     buildSkillsTable();
     renderCharacterSummary();
   }
@@ -840,7 +973,14 @@
       const row = document.createElement('tr');
       row.className = 'skill-row';
       const nameCell = document.createElement('td');
-      nameCell.textContent = skill;
+      // Display the skill name along with its formula string
+      const formulaStr = getFormulaWithValues(skill);
+      if (formulaStr) {
+        // Wrap formula in a span for styling
+        nameCell.innerHTML = `${skill} <span class="formula">(${formulaStr})</span>`;
+      } else {
+        nameCell.textContent = skill;
+      }
       row.appendChild(nameCell);
       // Base value cell (rounded to integer, no decimals)
       const baseCell = document.createElement('td');
@@ -983,6 +1123,14 @@
         alloc.culture = 5;
       }
     });
+    // Apply minimum for optional cultural skill if one is selected
+    if (character.selectedCultureOptionalSkill) {
+      const sk = character.selectedCultureOptionalSkill;
+      const alloc = character.skillAllocations[sk];
+      if (alloc && alloc.culture < 5) {
+        alloc.culture = 5;
+      }
+    }
     // Update remaining points display and totals
     updateSkillPoolsDisplay();
     updateSkillTotals();
@@ -1002,13 +1150,14 @@
       const skill = input.dataset.skill;
       const pool = input.dataset.pool;
       if (pool === 'culture') {
-        // Enable if the skill is a culture standard skill or a selected
-        // professional skill
+        // Enable if the skill is a culture standard skill, the selected
+        // optional skill, or a chosen professional skill
         const inStandard = cultureDef.standard.includes(skill);
+        const isOptional = (character.selectedCultureOptionalSkill === skill);
         const inPro = cultureDef.professional.includes(skill) && character.selectedCulturePro.includes(skill);
-        input.disabled = !(inStandard || inPro);
-        // For culture standard skills enforce a minimum of 5 points
-        if (!input.disabled && pool === 'culture' && inStandard) {
+        input.disabled = !(inStandard || isOptional || inPro);
+        // For culture standard skills (including selected optional) enforce a minimum of 5 points
+        if (!input.disabled && (inStandard || isOptional)) {
           input.min = 5;
         } else {
           input.min = 0;
@@ -1044,6 +1193,35 @@
       return fn(character.attributes);
     }
     return 0;
+  }
+
+  /**
+   * Produce a human‑readable formula string for a standard skill
+   * that includes the character's current attribute values.  If
+   * the skill has no defined formula (i.e., a professional skill)
+   * returns an empty string.  For example, if the formula is
+   * 'STR + DEX' and the character has STR 12 and DEX 14, this
+   * function returns 'STR (12) + DEX (14)'.  Multiplication is
+   * represented with an x sign.  Constant values (e.g., +40) are
+   * preserved.
+   */
+  function getFormulaWithValues(skill) {
+    const formula = standardSkillFormulaStrings[skill];
+    if (!formula) return '';
+    // Split the formula into tokens: attribute names, operators, numbers
+    // We'll replace attribute names with "ATTR (value)" and keep others
+    return formula.split(/\s+/).map(tok => {
+      // Remove parentheses and spaces around tokens
+      const clean = tok.replace(/\(/g,'').replace(/\)/g,'');
+      // Check for attribute names possibly followed by operators
+      // e.g., 'STR', 'INT', etc.
+      if (['STR','CON','SIZ','DEX','INT','POW','CHA'].includes(clean)) {
+        const val = character.attributes[clean];
+        return `${clean} (${val})`;
+      }
+      // For numbers like 40 or operators like +, *, etc., return as is
+      return tok;
+    }).join(' ');
   }
 
   /**
@@ -1188,6 +1366,9 @@
     });
     // Rebuild the professional skill checkboxes and update enabled inputs
     populateProfessionalOptions();
+
+    // Populate optional skill selector for the new culture
+    populateCultureOptionalSelect();
 
     // Apply minimum culture allocations of 5% to each standard skill in the selected culture
     applyCultureMinimums();
@@ -1641,6 +1822,10 @@
         buildSkillsTable();
         renderCharacterSummary();
       });
+    }
+    // Optional cultural skill selection
+    if (cultureOptionalSelect) {
+      cultureOptionalSelect.addEventListener('change', onCultureOptionalChange);
     }
     rollSilverBtn.addEventListener('click', generateStartingSilver);
     exportExcelBtn.addEventListener('click', exportToExcel);
